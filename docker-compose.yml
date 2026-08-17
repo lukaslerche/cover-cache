@@ -1,0 +1,15 @@
+services:
+  cover-cache:
+    restart: always
+    image: ghcr.io/lukaslerche/cover-cache:latest
+    volumes:
+      # Cover files and the SQLite index live together — one volume is the whole state.
+      - files:/images
+    ports:
+      - "9228:9228"
+    environment:
+      # Provider order; first cover found wins. Rationale in src/server.ts.
+      PROVIDERS: google,amazon,syndetics,elisa
+
+volumes:
+  files:
