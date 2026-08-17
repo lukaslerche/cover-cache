@@ -24,9 +24,9 @@ const FIRST_REQUEST_WAIT_MS = 1500;
 const PLACEHOLDER_THRESHOLD = 4;
 const CANARY_ISBNS = ['9780415480635', '9783110748529', '9781350185241'];
 
-/** 1x1 transparent PNG — what the catalogue expects when there is no cover. */
+/** 1x1 fully transparent PNG (RGBA 0,0,0,0) — the answer when there is no cover. */
 const NONE_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII=',
   'base64',
 );
 
