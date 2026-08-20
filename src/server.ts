@@ -76,7 +76,7 @@ const app = new Hono();
 app.use('*', async (c, next) => {
   await next();
   c.header('Access-Control-Allow-Origin', c.req.header('Origin') ?? '*');
-  c.header('Access-Control-Allow-Methods', 'GET, OPTIONS, HEAD');
+  c.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, HEAD');
 });
 
 function sendCover(c: Context, cover: Cover) {
@@ -143,6 +143,23 @@ app.get('/canary', async (c) => {
 
   const rate = ok / CANARY_ISBNS.length;
   return c.json({ healthy: rate >= 0.8, rate, checked: CANARY_ISBNS.length, results }, rate >= 0.8 ? 200 : 503);
+});
+
+app.post('/upload', async (c) => {
+  const raw = c.req.query('isbn');
+  if (!raw) return c.text('ISBN is empty!', 400);
+
+  const isbn = normalise(raw);
+  if (!isbn) return c.text('ISBN is invalid!', 400);
+
+  const contentType = (c.req.header('content-type') ?? '').split(';', 1)[0].trim().toLowerCase();
+  if (!contentType.startsWith('image/')) return c.text('Request body must be an image!', 415);
+
+  const bytes = Buffer.from(await c.req.arrayBuffer());
+  if (bytes.length === 0) return c.text('Image body is empty!', 400);
+
+  store.record(isbn, { bytes, contentType, source: 'upload', hash: md5(bytes) });
+  return c.body(null, 201);
 });
 
 console.log(`providers: ${ORDER.join(' → ')} | placeholders known: ${store.stats().placeholders.length}`);

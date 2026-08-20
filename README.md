@@ -52,6 +52,7 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 | `GET /cover?isbn=…` | The cover, or a 1×1 transparent PNG. Accepts comma-separated ISBNs and returns the first that has a cover. Sends `ETag`, so repeat views revalidate with a 304. |
 | `GET /health` | Cache statistics: totals, hits per source, placeholders learned. Instant, touches nothing external. |
 | `GET /canary` | Fetches known-good ISBNs from every provider; **503** if fewer than 80% come back. Slow, calls third parties. |
+| `POST /upload?isbn=…` | Send own cover to cache. Overwrites existing cover if present. (Add Content-Type `image/…`) |
 
 Point the uptime monitor at `/canary`. A cover source rots quietly and the service keeps answering `200` with placeholders, which `/health`
 cannot see.
