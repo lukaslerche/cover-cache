@@ -10,6 +10,8 @@ services:
     environment:
       # Provider order; first cover found wins. Rationale in src/server.ts.
       PROVIDERS: google,amazon,syndetics,elisa
+      # Shared secret for POST /upload. Leave it out and uploads are refused entirely.
+      UPLOAD_TOKEN: ${UPLOAD_TOKEN:-}
 
 volumes:
   files:

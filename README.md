@@ -26,6 +26,8 @@ pnpm start
 curl -o cover.jpg 'http://localhost:9228/cover?isbn=9780415480635'
 ```
 
+Optionally create a .env file with a an `UPLOAD_TOKEN` to enable uploading.
+
 ### Docker
 
 The image is published to `ghcr.io/lukaslerche/cover-cache`.
@@ -52,7 +54,16 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 | `GET /cover?isbn=…` | The cover, or a 1×1 transparent PNG. Accepts comma-separated ISBNs and returns the first that has a cover. Sends `ETag`, so repeat views revalidate with a 304. |
 | `GET /health` | Cache statistics: totals, hits per source, placeholders learned. Instant, touches nothing external. |
 | `GET /canary` | Fetches known-good ISBNs from every provider; **503** if fewer than 80% come back. Slow, calls third parties. |
-| `POST /upload?isbn=…` | Send own cover to cache. Overwrites existing cover if present. (Add Content-Type `image/…`) |
+| `POST /upload?isbn=…` | Store a **curated cover**, replacing whatever is cached. Requires `X-API-Key`; body is the image, `Content-Type` one of `image/jpeg`, `image/png`, `image/gif`, at most 5 MB. **201** on success, **401** on a bad key, **415** on any other type, **413** over the limit, **503** if `UPLOAD_TOKEN` is unset. |
+
+```bash
+curl -X POST -H "X-API-Key: $UPLOAD_TOKEN" -H 'Content-Type: image/jpeg' \
+  --data-binary @cover.jpg 'http://localhost:9228/upload?isbn=9780415480635'
+```
+
+A curated cover outranks every provider and is permanent: providers are not consulted for
+that ISBN again, and the placeholder sweep never removes it. Correct a mistake by uploading
+a better image.
 
 Point the uptime monitor at `/canary`. A cover source rots quietly and the service keeps answering `200` with placeholders, which `/health`
 cannot see.
@@ -65,6 +76,7 @@ cannot see.
 | `IMAGE_DIR` | `./images` | where cover files are written |
 | `DB_PATH` | `<IMAGE_DIR>/covers.db` | SQLite index; defaults inside the image directory |
 | `PROVIDERS` | `google,amazon,syndetics,elisa` | which sources to try, in order |
+| `UPLOAD_TOKEN` | *(unset)* | shared secret for `POST /upload`, sent as `X-API-Key`. Unset means uploads are refused. |
 
 The miss TTL, first-request wait, placeholder threshold and canary ISBNs are constants in
 `src/server.ts`.
@@ -91,3 +103,6 @@ once **4 distinct ISBNs** share the same bytes it is recorded as a placeholder, 
 cached under it is dropped, and those ISBNs refetch from the remaining providers. Learned
 hashes survive restarts and appear in `/health`. Four rather than two, because a hardback
 and a paperback of the same title routinely share a cover.
+
+Curated covers sit outside this entirely: they are neither counted towards the threshold
+nor dropped when one trips.

@@ -67,9 +67,32 @@ export class Store {
     return { status: 'miss' };
   }
 
+  /** The curated cover for this ISBN, if one was uploaded. Curated covers outrank providers. */
+  curated(isbn: string): Cover | null {
+    const row = this.#db
+      .prepare(`SELECT file, type FROM covers WHERE isbn = ? AND found = 1 AND source = 'upload'`)
+      .get(isbn) as { file: string | null; type: string | null } | undefined;
+
+    if (!row?.file || !existsSync(join(this.#dir, row.file))) return null;
+    return { file: row.file, type: row.type ?? 'image/jpeg' };
+  }
+
   /** Record the outcome of a fetch: the image if one was found, null if nothing was. */
   record(isbn: string, img: (Image & { hash: string }) | null): Cover | null {
     const cover = img ? { file: isbn + (EXT[img.contentType] ?? '.jpg'), type: img.contentType } : null;
+
+    // A replacement of a different type lands under a different name; drop the old file.
+    const prev = this.#db.prepare('SELECT file FROM covers WHERE isbn = ?').get(isbn) as
+      | { file: string | null }
+      | undefined;
+    if (prev?.file && prev.file !== cover?.file) {
+      try {
+        unlinkSync(join(this.#dir, prev.file));
+      } catch {
+        /* already gone */
+      }
+    }
+
     if (img && cover) writeFileSync(join(this.#dir, cover.file), img.bytes);
 
     this.#db
@@ -100,10 +123,13 @@ export class Store {
     return this.#db.prepare('SELECT 1 FROM placeholders WHERE hash = ?').get(hash) !== undefined;
   }
 
-  /** How many distinct ISBNs already hold this exact image. */
+  /** How many distinct ISBNs already hold this exact image. Curated covers do not count. */
   countHash(hash: string, exceptIsbn: string): number {
     const row = this.#db
-      .prepare('SELECT COUNT(*) AS n FROM covers WHERE hash = ? AND isbn <> ? AND found = 1')
+      .prepare(
+        `SELECT COUNT(*) AS n FROM covers
+         WHERE hash = ? AND isbn <> ? AND found = 1 AND COALESCE(source, '') <> 'upload'`,
+      )
       .get(hash, exceptIsbn) as { n: number };
     return row.n;
   }
@@ -113,9 +139,12 @@ export class Store {
    *
    * Dropped rather than marked as a miss: the remaining providers were never asked, so
    * those ISBNs go back to "unknown" instead of sitting behind the miss TTL for a month.
+   * Curated covers are never dropped.
    */
   markPlaceholder(hash: string, source: string, seen: number): number {
-    const affected = this.#db.prepare('SELECT isbn FROM covers WHERE hash = ?').all(hash) as { isbn: string }[];
+    const affected = this.#db
+      .prepare(`SELECT isbn FROM covers WHERE hash = ? AND COALESCE(source, '') <> 'upload'`)
+      .all(hash) as { isbn: string }[];
     this.#db
       .prepare('INSERT OR REPLACE INTO placeholders (hash, source, seen, learned_at) VALUES (?, ?, ?, ?)')
       .run(hash, source, seen, Date.now());
