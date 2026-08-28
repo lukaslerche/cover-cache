@@ -37,13 +37,13 @@ The image is published to `ghcr.io/lukaslerche/cover-cache`.
 docker compose pull && docker compose up -d
 
 # publish a new image (after: docker login ghcr.io)
-docker build -t ghcr.io/lukaslerche/cover-cache:latest -t ghcr.io/lukaslerche/cover-cache:1.0.0 .
+docker build -t ghcr.io/lukaslerche/cover-cache:latest -t ghcr.io/lukaslerche/cover-cache:1.1.0 .
 docker push ghcr.io/lukaslerche/cover-cache
 
 # publish with builx
 docker buildx build --platform linux/amd64,linux/arm64 \
   --tag ghcr.io/lukaslerche/cover-cache:latest \
-  --tag ghcr.io/lukaslerche/cover-cache:1.0.0 \
+  --tag ghcr.io/lukaslerche/cover-cache:1.1.0 \
   --push .
 ```
 
